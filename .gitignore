@@ -35,3 +35,26 @@ venv/
 # Output folders
 dist/
 build/
+
+.gcp-infra/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+.terraform.lock.hcl
+
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+.terraform.lock.hcl
+
