@@ -10,21 +10,21 @@ from airflow.providers.google.cloud.operators.dataproc import (
 from airflow.utils import trigger_rule
 
 # STEP 2: Define a start date
-yesterday = datetime(2025, 12, 11)
+yesterday = datetime(2025, 10, 18)
 
 # STEP 3: Default DAG arguments
 default_dag_args = {
-    'start_date': datetime(2025, 12, 11),
+    'start_date': datetime(2025, 10, 17),
     'depends_on_past': False,
     'email_on_failure': False,
-    'email_on_retry': False, 
+    'email_on_retry': False,
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
 # STEP 4: Define DAG
 with models.DAG(
-    dag_id='dataproc_cluster_create_pyspark_job_submit_dag_v2',
+    dag_id='dataproc_cluster_create_dag',
     description='DAG for deploying a Dataproc Cluster using modern operators',
     schedule_interval=timedelta(days=1),
     default_args=default_dag_args,
@@ -79,7 +79,7 @@ with models.DAG(
                 "cluster_name": 'dataproc-cluster-demo-{{ ds_nodash }}',
             },
             "pyspark_job": {
-                "main_python_file_uri": "gs://demobucket-from-lbnagar/foodorders_processing.py",
+                "main_python_file_uri": "gs://lvc-tc-mn-d-bckt/interviews_process_pyspark_script.py",
                 "args": [],
             },
         },
