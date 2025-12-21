@@ -29,7 +29,7 @@ module "bigquery" {
   table_schema       = var.table_schema
 }
 
-/*
+
 module "composer_envs" {
 source = "./modules/composer_envs"
 composer_env_name = var.composer_env_name
@@ -37,4 +37,4 @@ composer_region   = var.composer_region
 composer_sa       = var.composer_sa
 composer_image    = var.composer_image
 }
-*/
+
