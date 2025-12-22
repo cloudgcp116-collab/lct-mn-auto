@@ -88,9 +88,9 @@ with DAG(
     description="Demo DAG using PythonOperator with parameters",
     default_args=default_args,
     start_date=datetime(2025, 12, 5),
-    schedule_interval="0 0 * * *",
+    schedule_interval="0 0 * * *", # what is the schedule interval for daily at midnight
     catchup=False,
-    tags=["demo", "python_task"]
+    tags=["prod", "source_gsheet_to_gcs_raw"]
 ):
     # give a task using emty operator
     start = EmptyOperator(task_id="start")  

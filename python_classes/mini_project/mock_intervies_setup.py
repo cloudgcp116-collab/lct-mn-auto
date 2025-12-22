@@ -1,5 +1,5 @@
 from datetime import datetime
-from mock_interviews_scheduler import (
+from /home/airflow/gcs/dags/interviews_scheduled_folder/mock_interviews_scheduler import (
     read_and_filter_data,
     mergefiltered_data,
     send_email_notifications,
