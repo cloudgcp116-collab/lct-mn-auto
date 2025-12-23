@@ -24,7 +24,7 @@ default_dag_args = {
 
 # STEP 4: Define DAG
 with models.DAG(
-    dag_id='dataproc_cluster_create_dag',
+    dag_id='gcs_to_bigquery_ingestion_spark_job',
     description='DAG for deploying a Dataproc Cluster using modern operators',
     schedule_interval="30 0 * * *", # 
     default_args=default_dag_args,
