@@ -7,6 +7,7 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.models import Variable
 from airflow.operators.email import EmailOperator
+from airflow.utils.trigger_rule import TriggerRule
 
 import gspread
 import pandas as pd
@@ -22,7 +23,7 @@ sheet_name = "interviews1"
 creds_json = "/home/airflow/gcs/dags/creds/service_account_credentials.json"
 bucket_name = "lvc-tc-mn-d-bckt"
 
-EMAIL_DL = ["dteam@company.com"]
+EMAIL_DL = ["lavu2018hani@gmail.com"]
 
 
 # -----------------------------
@@ -31,46 +32,13 @@ EMAIL_DL = ["dteam@company.com"]
 default_args = {
     "owner": "data_engineering_team",
     "depends_on_past": False,
-    "email": EMAIL_DL,
-    "email_on_failure": False,   # handled via callback
-    "email_on_retry": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
 }
 
 
 # -----------------------------
-# CALLBACK FUNCTIONS - Sec4
-# -----------------------------
-def success_email_callback(context):
-    EmailOperator(
-        task_id="success_email",
-        to=EMAIL_DL,
-        subject=f"SUCCESS: DAG {context['dag'].dag_id}",
-        html_content=f"""
-        <h3>DAG Execution Successful</h3>
-        <p><b>DAG:</b> {context['dag'].dag_id}</p>
-        <p><b>Execution Date:</b> {context['execution_date']}</p>
-        """,
-    ).execute(context=context)
-
-
-def failure_email_callback(context):
-    EmailOperator(
-        task_id="failure_email",
-        to=EMAIL_DL,
-        subject=f"FAILED: DAG {context['dag'].dag_id}",
-        html_content=f"""
-        <h3>DAG Execution Failed</h3>
-        <p><b>DAG:</b> {context['dag'].dag_id}</p>
-        <p><b>Task:</b> {context['task_instance'].task_id}</p>
-        <p><b>Error:</b> {context.get('exception')}</p>
-        """,
-    ).execute(context=context)
-
-
-# -----------------------------
-# PYTHON FUNCTIONS - Sec5
+# PYTHON FUNCTIONS - Sec4
 # -----------------------------
 def greet_user(name, age, country):
     print(f"Hello {name}, age {age}, from {country}!")
@@ -78,9 +46,6 @@ def greet_user(name, age, country):
 
 def extract_data_from_google_sheets(sheet_id, sheet_name, creds_json):
 
-    # -----------------------------
-    # Authenticate & Read Sheet
-    # -----------------------------
     scope = [
         "https://www.googleapis.com/auth/spreadsheets.readonly",
         "https://www.googleapis.com/auth/drive.readonly",
@@ -93,27 +58,21 @@ def extract_data_from_google_sheets(sheet_id, sheet_name, creds_json):
     df = pd.DataFrame(sheet.get_all_records())
 
     if df.empty:
-        print("No data in Google Sheet")
+        print("No data found in Google Sheet")
         return
 
-    # -----------------------------
-    # Parse timestamp → date
-    # -----------------------------
+    # Parse timestamp
     df["timestamp"] = pd.to_datetime(
         df["timestamp"], format="%m/%d/%Y %H:%M:%S", errors="coerce"
     )
     df["record_date"] = df["timestamp"].dt.date
 
-    # -----------------------------
-    # FULL / INCREMENTAL LOGIC
-    # -----------------------------
+    # Full / Incremental logic
     try:
         last_load_date = Variable.get("last_load_date")
         last_load_date = datetime.strptime(last_load_date, "%Y-%m-%d").date()
-
         df = df[df["record_date"] > last_load_date]
         load_type = "INCREMENTAL LOAD"
-
     except Exception:
         load_type = "FULL LOAD"
 
@@ -124,13 +83,10 @@ def extract_data_from_google_sheets(sheet_id, sheet_name, creds_json):
         print("No new records to load")
         return
 
-    # -----------------------------
     # Upload to GCS
-    # -----------------------------
     current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
     destination_blob_name = (
-        f"interviews_scheduled_folder/raw/"
-        f"interviews_data_{current_datetime}.csv"
+        f"interviews_scheduled_folder/raw/interviews_data_{current_datetime}.csv"
     )
 
     storage_client = storage.Client.from_service_account_json(creds_json)
@@ -141,29 +97,23 @@ def extract_data_from_google_sheets(sheet_id, sheet_name, creds_json):
 
     print(f"Uploaded to gs://{bucket_name}/{destination_blob_name}")
 
-    # -----------------------------
     # Update last_load_date
-    # -----------------------------
     today = datetime.today().strftime("%Y-%m-%d")
     Variable.set("last_load_date", today)
 
-    print(f"Updated last_load_date to {today}")
-
 
 # --------------------------------
-# DAG DEFINITION - Sec6
+# DAG DEFINITION - Sec5
 # --------------------------------
 with DAG(
-    dag_id="gsheet_to_gcs_raw_data_dag",
+    dag_id="gsheet_to_gcs_raw_data_pipe_dag",
     description="Google Sheet to GCS with full & incremental load + email alerts",
     default_args=default_args,
     start_date=datetime(2025, 12, 5),
-    schedule_interval="0 0 * * *",  # Daily at midnight
+    schedule_interval="0 0 * * *",
     catchup=False,
     tags=["prod", "source_gsheet_to_gcs_raw"],
-    on_success_callback=success_email_callback,
-    on_failure_callback=failure_email_callback,
-):
+) as dag:
 
     start = EmptyOperator(task_id="start")
 
@@ -187,6 +137,41 @@ with DAG(
         },
     )
 
+    # -----------------------------
+    # SUCCESS EMAIL
+    # -----------------------------
+    success_email = EmailOperator(
+        task_id="success_email",
+        to=EMAIL_DL,
+        subject="✅ SUCCESS: gsheet_to_gcs_raw_data_pipeline_dag",
+        html_content="""
+        <h3>DAG Completed Successfully 🎉</h3>
+        <p>DAG: gsheet_to_gcs_raw_data_pipeline_dag</p>
+        <p>Execution Time: {{ ts }}</p>
+        """,
+        trigger_rule=TriggerRule.ALL_SUCCESS,
+    )
+
+    # -----------------------------
+    # FAILURE EMAIL
+    # -----------------------------
+    failure_email = EmailOperator(
+        task_id="failure_email",
+        to=EMAIL_DL,
+        subject="❌ FAILURE: gsheet_to_gcs_raw_data_pipeline_dag",
+        html_content="""
+        <h3>DAG Failed 🚨</h3>
+        <p>DAG: gsheet_to_gcs_raw_data_pipeline_dag</p>
+        <p>Execution Time: {{ ts }}</p>
+        <p>Please check Airflow logs.</p>
+        """,
+        trigger_rule=TriggerRule.ONE_FAILED,
+    )
+
     end = EmptyOperator(task_id="end")
 
-    start >> greet_task >> read_sheet_and_load_task >> end
+    # -----------------------------
+    # DEPENDENCIES
+    # -----------------------------
+    start >> greet_task >> read_sheet_and_load_task
+    read_sheet_and_load_task >> [success_email, failure_email] >> end

@@ -26,7 +26,7 @@ default_dag_args = {
 with models.DAG(
     dag_id='dataproc_cluster_create_dag',
     description='DAG for deploying a Dataproc Cluster using modern operators',
-    schedule_interval=None,
+    schedule_interval="30 0 * * *", # 
     default_args=default_dag_args,
     catchup=False,
 ) as dag:
